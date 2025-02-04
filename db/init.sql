@@ -40,8 +40,6 @@ CREATE TABLE IF NOT EXISTS `mydb`.`room` (
 -- Facility 테이블
 CREATE TABLE IF NOT EXISTS `mydb`.`facility` (
   `facility_id` INT NOT NULL AUTO_INCREMENT,
-  `facility_name` VARCHAR(255) NOT NULL,
-  `facility_type` VARCHAR(45) NOT NULL,  -- 편의점, 은행, 서점 등
   `location` VARCHAR(255) NOT NULL,
   `description` TEXT,
   `company_name` VARCHAR(255),
@@ -78,7 +76,6 @@ CREATE TABLE IF NOT EXISTS `mydb`.`convenience_store` (
   `name` VARCHAR(255) NOT NULL,
   `location` VARCHAR(255) NOT NULL,
   `description` TEXT,
-  `company_name` VARCHAR(255),
   PRIMARY KEY (`store_id`)
 ) ENGINE=InnoDB;
 
