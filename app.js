@@ -13,23 +13,27 @@ app.use((req, res, next) => {
 });
 
 // EJS 설정
-app.set('view engine', 'ejs');
+app.set('view engine', 'ejs');  
 // 정적 파일 제공
 app.use(express.static('public'));
 
 // API 키 설정
-const SEOUL_MAP_KEY = process.env.SEOUL_MAP_KEY || 'YOUR_API_KEY';
+const SEOUL_MAP_KEY = 'KEY158_972d5ece1363464bb55da94c73a9fbb7' ;
 
 // 메인 페이지 라우트
 app.get('/', (req, res) => {
-    res.render('map', { SEOUL_MAP_KEY });
+    res.render('map.ejs', { 
+        SEOUL_MAP_KEY,
+        mapWidth: 800,  // 지도 너비 추가
+        mapHeight: 600  // 지도 높이 추가
+    });
 });
 
 // API 프록시 라우트
 app.get('/api/map-info', async (req, res) => {
     try {
         // API
-        const response = await axios.get(`https://map.seoul.go.kr/openapi/v5/${SEOUL_MAP_KEY}/public/map/info`, {
+        const response = await axios.get("https://map.seoul.go.kr/openapi/v5/KEY158_972d5ece1363464bb55da94c73a9fbb7/public/map/css/5.0", {
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'

@@ -1,78 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>서울 지도</title>
     <meta charset="UTF-8">
-    <script type="text/javascript" src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <title>서울시 지도</title>
+    <link rel="stylesheet" type="text/css" href="https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/css/5.0">
+    <script type="text/javascript" src="https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/js/5.0"></script>
+    <script type="text/javascript" src="https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/base/js/5179/5.0"></script>
     <style>
-        #map {
-            height: 600px;
+        html, body {
+            margin: 0;
+            padding: 0;
             width: 100%;
+            height: 100%;
         }
-        #info {
-            margin: 10px;
-            padding: 10px;
-            border: 1px solid #ccc;
+        #mapContainer {
+            width: 100%;
+            height: 100%;
         }
     </style>
 </head>
 <body>
-    <h1>서울 지도</h1>
-    <div id="info"></div>
-    <div id="map"></div>
-
-    <script>
-        $(document).ready(function() {
-            const SEOUL_MAP_KEY = '<%= SEOUL_MAP_KEY %>';
-            
-            // 먼저 지도 초기화
-            initMap();
-            
-            // 그 다음 지도 정보 가져오기
-            $.ajax({
-                url: '/api/map-info',
-                method: 'GET',
-                dataType: 'json',
-                success: function(response) {
-                    console.log('API 응답:', response);
-                    $('#info').html(`
-                        <h3>지도 정보</h3>
-                        <p>상태: ${response.header?.resultCode === "200" ? "성공" : "실패"}</p>
-                        <p>메시지: ${response.header?.message || "없음"}</p>
-                        <pre>${JSON.stringify(response, null, 2)}</pre>
-                    `);
-                },
-                error: function(xhr, status, error) {
-                    console.error('API 호출 실패:', error);
-                    $('#info').html(`
-                        <h3>API 호출 실패</h3>
-                        <p>상태: ${status}</p>
-                        <p>오류: ${error}</p>
-                        <p>응답: ${xhr.responseText || "없음"}</p>
-                    `);
-                }
-            });
-
-            function initMap() {
-                try {
-                    // 서울시청 좌표로 초기화
-                    const map = L.map('map').setView([37.5665, 126.9780], 12);
-                    
-                    // 서울시 지도 타일 레이어 추가
-                    L.tileLayer(`https://map.seoul.go.kr/openapi/v5/${SEOUL_MAP_KEY}/public/map/base/dawul_kor_normal/{z}/{x}/{y}/png`, {
-                        attribution: '서울특별시',
-                        maxZoom: 19,
-                        minZoom: 6
-                    }).addTo(map);
-                    
-                } catch (e) {
-                    console.error('지도 초기화 오류:', e);
-                    $('#info').append(`<p style="color: red;">지도 초기화 오류: ${e.message}</p>`);
-                }
-            }
+    <div id="mapContainer"></div>
+    
+    <script type="text/javascript">
+        var map = L.map("mapContainer", {
+            crs: getCrsEx(),
+            continuousWorld: true,
+            worldCopyJump: false,
+            zoomControl: false,
+            zoomAnimation: false,
+            fadeAnimation: true,
+            inertia: false,
+            closePopupOnClick: false,
+            attributionControl: false
         });
+
+        map.scrollWheelZoom.enable();
+
+        var BASE_MAP = "https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/base/dawul_kor_normal/{z}/{j}/{k}/{x}/{y}/png";
+        var baseMap = new L.TileLayer.DAWULGIS_EX(BASE_MAP, {
+            minZoom: 1,
+            maxZoom: 15,
+            visible: false
+        });
+
+        map.setView([37.566611, 126.978509], 10);
+        map.addLayer(baseMap, true);
     </script>
 </body>
-</html> 
+</html>
