@@ -7,8 +7,43 @@ const cheerio = require('cheerio');
 
 //  DB 연동 필요_임시임임
 const buildings = [
-  { id: 1, name: "새빛관", location: { lat: 37.123, lng: 127.456 } },
-  { id: 2, name: "80주년 기념관관", location: { lat: 37.789, lng: 127.654 } }
+  { id: 1, name: "새빛관", location: { lat: 37.6193, lng: 127.0595 } },
+  { id: 2, name: "80주년기념관", location: { lat: 37.6198, lng: 127.0597 } }
+];
+
+// 서울시 지도 API 키
+const SEOUL_MAP_KEY = 'KEY158_972d5ece1363464bb55da94c73a9fbb7';
+
+// 기본 공지사항 데이터
+const defaultNotices = [
+    {
+        id: 1,
+        title: "종합18위 달성",
+        link: "https://www.kw.ac.kr/ko/life/newsletter.jsp?BoardMode=view&DUID=48430",
+        imageUrl: "https://www.kw.ac.kr/KWData/Banner/2024/20241119103225.png",
+        date: "2024.01"
+    },
+    {
+        id: 2,
+        title: "교육혁신부문 수상",
+        link: "https://www.joongang.co.kr/article/25287639",
+        imageUrl: "https://www.kw.ac.kr/KWData/Banner/2024/20241029145830.png",
+        date: "2024.01"
+    },
+    {
+        id: 3,
+        title: "광운과 함께 새로운 100년을 향한 의미 있는 동행",
+        link: "https://fund.kw.ac.kr/",
+        imageUrl: "https://www.kw.ac.kr/KWData/Banner/2023/20230523172240.png",
+        date: "2024.01"
+    },
+    {
+        id: 4,
+        title: "일대일1:1진로취업상담",
+        link: "https://job.kw.ac.kr/my/login_form.php?redir=/jobprogram/counsel.php",
+        imageUrl: "https://www.kw.ac.kr/KWData/Banner/2022/20220318132701.png",
+        date: "2024.01"
+    }
 ];
 
 // 광운대 메인페이지 슬라이드 크롤링 함수
@@ -61,6 +96,46 @@ async function crawlKwangwoonSlides() {
     }
 }
 
+// 광운대학교 공지사항 크롤링
+async function crawlKwangwoonNotices() {
+    try {
+        const response = await axios.get('https://www.kw.ac.kr/ko/');
+        const $ = cheerio.load(response.data);
+        const notices = new Set(); // 중복 제거를 위해 Set 사용
+        const noticeArray = [];
+
+        // 모든 swiper-slide를 선택하되 중복 제거
+        $('.main-slide .swiper-slide').each((index, element) => {
+            const img = $(element).find('img');
+            const onclick = img.attr('onclick') || '';
+            const link = onclick.match(/window\.open\('([^']+)'/)?.[1] || '';
+            const imageUrl = img.attr('src');
+            const title = img.attr('alt') || '';
+
+            // imageUrl을 키로 사용하여 중복 체크
+            if (imageUrl && !notices.has(imageUrl)) {
+                notices.add(imageUrl);
+                noticeArray.push({
+                    id: noticeArray.length + 1,
+                    title: title,
+                    link: link.startsWith('http') ? link : `https://www.kw.ac.kr${link}`,
+                    imageUrl: imageUrl.startsWith('http') ? imageUrl : `https://www.kw.ac.kr${imageUrl}`,
+                    date: new Date().toLocaleDateString()
+                });
+            }
+        });
+
+        // 정확히 5개만 반환
+        const uniqueNotices = noticeArray.slice(0, 5);
+        
+        console.log('크롤링된 공지사항 수:', uniqueNotices.length);  // 디버깅용
+        return uniqueNotices.length > 0 ? uniqueNotices : defaultNotices;
+    } catch (error) {
+        console.error('공지사항 크롤링 오류:', error);
+        return defaultNotices;
+    }
+}
+
 // 장소 검색 API
 router.get('/query', (req, res) => {
     const query = req.query.query || ''; // 쿼리가 없을 경우 빈 문자열 사용
@@ -97,6 +172,136 @@ router.get('/slides', async (req, res) => {
         res.status(500).json({ 
             error: '슬라이드 데이터를 불러오는데 실패했습니다.',
             success: false 
+        });
+    }
+});
+
+// 건물 정보 API
+router.get('/building/info', (req, res) => {
+    const buildingId = parseInt(req.query.id);
+    const building = buildings.find(b => b.id === buildingId);
+    
+    if (building) {
+        res.json({
+            building: building,
+            success: true
+        });
+    } else {
+        res.status(404).json({
+            error: '건물을 찾을 수 없습니다.',
+            success: false
+        });
+    }
+});
+
+// 1. 지도 정보 조회 API
+router.get('/map-info', async (req, res) => {
+    try {
+        const response = await axios.get('https://map.seoul.go.kr/smgis/apps/mapInfoService/getMapInfo.do', {
+            params: {
+                key: SEOUL_MAP_KEY,
+                type: 'json',
+                reqCoord: 'EPSG:4326',  // WGS84 좌표계
+                resCoord: 'EPSG:4326',
+                xmin: '127.0565',  // 광운대 주변 영역
+                ymin: '37.6173',
+                xmax: '127.0625',
+                ymax: '37.6213'
+            }
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error('지도 정보 조회 오류:', error);
+        res.status(500).json({
+            error: '지도 정보를 불러오는데 실패했습니다.',
+            details: error.message
+        });
+    }
+});
+
+// 2. 특정 좌표의 지도 타일 조회 API
+router.get('/map-tile', async (req, res) => {
+    const { z, x, y } = req.query;
+    try {
+        const response = await axios.get(`https://map.seoul.go.kr/smgis/apps/mapImageService/getTileImage.do`, {
+            params: {
+                key: SEOUL_MAP_KEY,
+                type: 'json',
+                zoom: z,
+                x: x,
+                y: y
+            },
+            responseType: 'arraybuffer'
+        });
+        res.type('image/png').send(response.data);
+    } catch (error) {
+        console.error('지도 타일 조회 오류:', error);
+        res.status(500).json({
+            error: '지도 타일을 불러오는데 실패했습니다.',
+            details: error.message
+        });
+    }
+});
+
+// 3. 주소/장소 검색 API
+router.get('/map-search', async (req, res) => {
+    const { query } = req.query;
+    try {
+        const response = await axios.get('https://map.seoul.go.kr/smgis/apps/geocoding.do', {
+            params: {
+                key: SEOUL_MAP_KEY,
+                type: 'json',
+                address: query
+            }
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error('주소 검색 오류:', error);
+        res.status(500).json({
+            error: '주소 검색에 실패했습니다.',
+            details: error.message
+        });
+    }
+});
+
+// 4. 건물 위치 마커 API
+router.get('/map-markers', (req, res) => {
+    try {
+        const markers = buildings.map(building => ({
+            id: building.id,
+            name: building.name,
+            location: building.location
+        }));
+        res.json({ 
+            markers,
+            success: true 
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: '마커 정보를 불러오는데 실패했습니다.',
+            success: false
+        });
+    }
+});
+
+// 공지사항 API 엔드포인트
+router.get('/notices', async (req, res) => {
+    try {
+        console.log('공지사항 요청 받음');
+        const notices = await crawlKwangwoonNotices();
+        console.log('크롤링된 공지사항:', notices);
+        
+        res.json({
+            notices: notices,
+            success: true,
+            isDefault: notices === defaultNotices
+        });
+    } catch (error) {
+        console.error('공지사항 API 오류:', error);
+        res.json({
+            notices: defaultNotices,
+            success: true,
+            isDefault: true
         });
     }
 });
