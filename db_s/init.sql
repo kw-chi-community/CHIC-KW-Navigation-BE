@@ -105,3 +105,5 @@ CREATE TABLE IF NOT EXISTS `mydb`.`route` (
   `type` VARCHAR(50) NOT NULL,  -- 경로 타입 (빠른길, 일반길, 편한길)
   PRIMARY KEY (`route_id`)
 ) ENGINE=InnoDB;
+
+
