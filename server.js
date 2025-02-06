@@ -5,7 +5,7 @@ const axios = require('axios');
 
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 21381;
+const PORT = process.env.PORT || 3000;
 const SEOUL_MAP_KEY = process.env.SEOUL_MAP_KEY;
 // 미들웨어 설정
 app.use(cors());

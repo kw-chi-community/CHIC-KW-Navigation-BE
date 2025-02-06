@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>광운대학교 캠퍼스 안내</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .search-section {
+            margin-bottom: 30px;
+        }
+        #searchInput {
+            width: 80%;
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #003876; /* 광운대 색상 */
+            border-radius: 5px;
+        }
+        .news-section {
+            margin-bottom: 30px;
+        }
+        .swiper-container {
+            width: 100%;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        .map-section {
+            margin-bottom: 30px;
+        }
+        .facilities-section {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .facility-button {
+            padding: 15px;
+            font-size: 16px;
+            background-color: #003876;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .facility-button:hover {
+            background-color: #002654;
+        }
+        #searchResults {
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            display: none;
+        }
+        .swiper-slide {
+            text-align: center;
+        }
+        .swiper-slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #mapContainer {
+            width: 100%;
+            height: 400px; /* 지도 높이 조정 */
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+    </style>
+    <!-- Swiper CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css">
+    <!-- 서울시 지도 API 관련 파일 추가 -->
+    <link rel="stylesheet" type="text/css" href="https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/css/5.0">
+    <script type="text/javascript" src="https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/js/5.0"></script>
+    <script type="text/javascript" src="https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/base/js/5179/5.0"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- 검색 섹션 -->
+        <div class="search-section">
+            <h2>건물/강의실 검색</h2>
+            <input type="text" id="searchInput" placeholder="건물명 또는 강의실을 입력하세요">
+            <div id="searchResults"></div>
+        </div>
+
+        <!-- 광운대 소식 섹션 -->
+        <div class="news-section">
+            <h2>광운대 소식</h2>
+            <div class="swiper-container">
+                <div class="swiper-wrapper">
+                    <!-- 슬라이드는 JavaScript로 동적 생성됨 -->
+                </div>
+                <div class="swiper-pagination"></div>
+                <div class="swiper-button-next"></div>
+                <div class="swiper-button-prev"></div>
+        
+            </div>
+        </div>
+
+        <!-- 지도 섹션 -->
+        <div class="map-section">
+            <h2>캠퍼스 지도</h2>
+            <div id="mapContainer"></div>
+        </div>
+
+        <!-- 편의시설 섹션 -->
+        <div class="facilities-section">
+            <button class="facility-button" data-type="convenience">편의점</button>
+            <button class="facility-button" data-type="cafe">카페</button>
+            <button class="facility-button" data-type="food">식당</button>
+            <button class="facility-button" data-type="facility">편의시설</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+    <script>
+        // 검색 기능
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+
+        searchInput.addEventListener('input', async () => {
+            const query = searchInput.value;
+            if (query.length > 0) {
+                try {
+                    const response = await fetch(`/api/search/query?query=${query}`);
+                    const data = await response.json();
+                    displaySearchResults(data.results);
+                } catch (error) {
+                    console.error('검색 오류:', error);
+                }
+            }
+        });
+
+        function displaySearchResults(results) {
+            searchResults.style.display = 'block';
+            searchResults.innerHTML = results.map(item => 
+                `<div>${item.name}</div>`
+            ).join('');
+        }
+
+        // 슬라이더 초기화
+        async function initializeSwiper() {
+            try {
+                console.log('슬라이더 초기화 시작');  // 디버깅용 로그
+                const response = await fetch('/api/search/slides');
+                console.log('서버 응답:', response);  // 디버깅용 로그
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('받은 데이터:', data);  // 디버깅용 로그
+                
+                if (data && data.slides && data.slides.length > 0) {
+                    const swiperWrapper = document.querySelector('.swiper-wrapper');
+                    swiperWrapper.innerHTML = data.slides.map(slide => `
+                        <div class="swiper-slide">
+                            <img src="${slide.imageUrl}" 
+                                 alt="${slide.alt}" 
+                                 onclick="window.open('${slide.link}', '_blank')"
+                                 style="cursor:pointer;">
+                        </div>
+                    `).join('');
+
+                    // Swiper 인스턴스 생성
+                    const swiper = new Swiper('.swiper-container', {
+                        loop: true,
+                        autoplay: {
+                            delay: 3000,
+                            disableOnInteraction: false,
+                        },
+                        pagination: {
+                            el: '.swiper-pagination',
+                            type: 'fraction',
+                        },
+                        navigation: {
+                            nextEl: '.swiper-button-next',
+                            prevEl: '.swiper-button-prev',
+                        },
+                        on: {
+                            init: function() {
+                                console.log('Swiper 초기화 완료');  // 디버깅용 로그
+                            }
+                        }
+                    });
+                } else {
+                    console.error('슬라이드 데이터가 비어있습니다.');
+                }
+            } catch (error) {
+                console.error('슬라이더 초기화 오류:', error);
+            }
+        }
+
+        // 페이지 로드 완료 시 슬라이더 초기화
+        document.addEventListener('DOMContentLoaded', initializeSwiper);
+
+        // 편의시설 버튼 이벤트
+        document.querySelectorAll('.facility-button').forEach(button => {
+            button.addEventListener('click', async () => {
+                const facilityType = button.dataset.type;
+                try {
+                    const response = await fetch(`/api/search/facilities/${facilityType}`);
+                    const data = await response.json();
+                    // 지도에 마커 표시 로직 추가 필요
+                    console.log(data.facilities);
+                } catch (error) {
+                    console.error('시설 정보 로드 오류:', error);
+                }
+            });
+        });
+
+        // 지도 초기화
+        var map = L.map("mapContainer", {
+            crs: getCrsEx(),
+            continuousWorld: true,
+            worldCopyJump: false,
+            zoomControl: false,
+            zoomAnimation: false,
+            fadeAnimation: true,
+            inertia: false,
+            closePopupOnClick: false,
+            attributionControl: false
+        });
+
+        map.scrollWheelZoom.enable();
+
+        var BASE_MAP = "https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/base/dawul_kor_normal/{z}/{j}/{k}/{x}/{y}/png";
+        var baseMap = new L.TileLayer.DAWULGIS_EX(BASE_MAP, {
+            minZoom: 1,
+            maxZoom: 15,
+            visible: false
+        });
+
+        // 광운대학교 좌표로 중심 설정
+        map.setView([37.6193, 127.0595], 15);
+        map.addLayer(baseMap, true);
+    </script>
+</body>
+</html>
