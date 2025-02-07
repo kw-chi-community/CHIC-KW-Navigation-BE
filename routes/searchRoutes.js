@@ -14,36 +14,9 @@ const buildings = [
 // 서울시 지도 API 키
 const SEOUL_MAP_KEY = 'KEY158_972d5ece1363464bb55da94c73a9fbb7';
 
-// 기본 공지사항 데이터
+// 공지사항을 크롤링할 공간
 const defaultNotices = [
-    {
-        id: 1,
-        title: "종합18위 달성",
-        link: "https://www.kw.ac.kr/ko/life/newsletter.jsp?BoardMode=view&DUID=48430",
-        imageUrl: "https://www.kw.ac.kr/KWData/Banner/2024/20241119103225.png",
-        date: "2024.01"
-    },
-    {
-        id: 2,
-        title: "교육혁신부문 수상",
-        link: "https://www.joongang.co.kr/article/25287639",
-        imageUrl: "https://www.kw.ac.kr/KWData/Banner/2024/20241029145830.png",
-        date: "2024.01"
-    },
-    {
-        id: 3,
-        title: "광운과 함께 새로운 100년을 향한 의미 있는 동행",
-        link: "https://fund.kw.ac.kr/",
-        imageUrl: "https://www.kw.ac.kr/KWData/Banner/2023/20230523172240.png",
-        date: "2024.01"
-    },
-    {
-        id: 4,
-        title: "일대일1:1진로취업상담",
-        link: "https://job.kw.ac.kr/my/login_form.php?redir=/jobprogram/counsel.php",
-        imageUrl: "https://www.kw.ac.kr/KWData/Banner/2022/20220318132701.png",
-        date: "2024.01"
-    }
+    
 ];
 
 // 광운대 메인페이지 슬라이드 크롤링 함수
@@ -103,6 +76,7 @@ async function crawlKwangwoonNotices() {
         const $ = cheerio.load(response.data);
         const notices = new Set(); // 중복 제거를 위해 Set 사용
         const noticeArray = [];
+        const existingTitles = new Set(); // 제목 중복 체크를 위한 Set
 
         // 모든 swiper-slide를 선택하되 중복 제거
         $('.main-slide .swiper-slide').each((index, element) => {
@@ -111,10 +85,14 @@ async function crawlKwangwoonNotices() {
             const link = onclick.match(/window\.open\('([^']+)'/)?.[1] || '';
             const imageUrl = img.attr('src');
             const title = img.attr('alt') || '';
+            
+            // 제목에서 모든 공백을 제거하고 소문자로 변환하여 비교
+            const normalizedTitle = title.replace(/\s+/g, '').toLowerCase();
 
-            // imageUrl을 키로 사용하여 중복 체크
-            if (imageUrl && !notices.has(imageUrl)) {
+            // imageUrl과 정규화된 title을 모두 체크하여 중복 제거
+            if (imageUrl && !notices.has(imageUrl) && !existingTitles.has(normalizedTitle)) {
                 notices.add(imageUrl);
+                existingTitles.add(normalizedTitle);
                 noticeArray.push({
                     id: noticeArray.length + 1,
                     title: title,
@@ -126,7 +104,7 @@ async function crawlKwangwoonNotices() {
         });
 
         // 정확히 5개만 반환
-        const uniqueNotices = noticeArray.slice(0, 5);
+        const uniqueNotices = noticeArray;
         
         console.log('크롤링된 공지사항 수:', uniqueNotices.length);  // 디버깅용
         return uniqueNotices.length > 0 ? uniqueNotices : defaultNotices;
@@ -247,19 +225,39 @@ router.get('/map-tile', async (req, res) => {
 router.get('/map-search', async (req, res) => {
     const { query } = req.query;
     try {
-        const response = await axios.get('https://map.seoul.go.kr/smgis/apps/geocoding.do', {
+        console.log('검색 요청 주소:', query); // 디버깅용
+
+        const response = await axios.get(`https://map.seoul.go.kr/openapi/v5/${SEOUL_MAP_KEY}/public/geocoding/foward`, {
             params: {
-                key: SEOUL_MAP_KEY,
-                type: 'json',
-                address: query
+                full_address: query,
+                address_type: 'S',
+                req_lang: 'KOR',
+                res_lang: 'KOR'
             }
         });
-        res.json(response.data);
+
+        console.log('API 응답:', response.data); // 디버깅용
+
+        // RETCODE가 0이고 point가 있는 경우에만 성공으로 처리
+        if (response.data.head && response.data.head.RETCODE === "0" && response.data.head.point) {
+            const [lng, lat] = response.data.head.point.split(',').map(Number);
+            res.json({
+                success: true,
+                coordinates: { lat, lng },
+                address: response.data.head.NEW_ADDR || response.data.head.LEGAL_ADDR || query
+            });
+        } else {
+            console.log('검색 실패:', response.data); // 디버깅용
+            res.json({
+                success: false,
+                error: '정확한 주소를 입력해주세요.'
+            });
+        }
     } catch (error) {
         console.error('주소 검색 오류:', error);
         res.status(500).json({
-            error: '주소 검색에 실패했습니다.',
-            details: error.message
+            success: false,
+            error: '주소 검색 중 오류가 발생했습니다. 다시 시도해주세요.'
         });
     }
 });

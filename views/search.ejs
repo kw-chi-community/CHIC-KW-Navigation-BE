@@ -17,9 +17,14 @@
         .search-section {
             margin-bottom: 20px;
         }
-        #searchInput { 
-            width: 100%; 
-            padding: 10px; 
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        #searchInput {
+            flex: 1;
+            padding: 10px;
             font-size: 16px;
             border: 2px solid #003876;
             border-radius: 5px;
@@ -113,13 +118,27 @@
         .notice-control-btn:hover {
             background-color: #002654;
         }
+        .search-container button {
+            padding: 10px 20px;
+            background-color: #003876;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .search-container button:hover {
+            background-color: #002654;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <!-- 검색 섹션 -->
         <div class="search-section">
-            <input type="text" id="searchInput" placeholder="건물 또는 시설 검색">
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="주소 검색">
+                <button onclick="searchAddress()">검색</button>
+            </div>
         </div>
 
         <!-- 공지사항 섹션 -->
@@ -178,15 +197,47 @@
         map.setView([37.6193, 127.0595], 15);
         map.addLayer(baseMap, true);
 
-        // 검색 기능
-        document.getElementById('searchInput').addEventListener('input', async (e) => {
-            const query = e.target.value;
+        // 주소 검색 함수
+        async function searchAddress() {
+            const searchInput = document.getElementById('searchInput');
+            const query = searchInput.value.trim();
+            
+            if (!query) {
+                alert('검색할 주소를 입력해주세요.');
+                return;
+            }
+
             try {
-                const response = await fetch(`/api/search/query?query=${query}`);
+                const response = await fetch(`/api/search/map-search?query=${query}`);
                 const data = await response.json();
-                updateBuildingList(data.results);
+
+                if (data.success && data.coordinates) {
+                    // 지도 중심 이동
+                    map.setView([data.coordinates.lat, data.coordinates.lng], 17);
+                    
+                    // 검색된 위치에 마커 표시
+                    const marker = L.marker([data.coordinates.lat, data.coordinates.lng])
+                        .addTo(map)
+                        .bindPopup(data.address)
+                        .openPopup();
+                    
+                    // 5초 후 마커 제거
+                    setTimeout(() => {
+                        map.removeLayer(marker);
+                    }, 5000);
+                } else {
+                    alert(data.error || '주소를 찾을 수 없습니다.');
+                }
             } catch (error) {
-                console.error('검색 오류:', error);
+                console.error('주소 검색 오류:', error);
+                alert('주소 검색에 실패했습니다.');
+            }
+        }
+
+        // Enter 키로 검색 실행
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchAddress();
             }
         });
 
