@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>광운대학교 캠퍼스 안내</title>
+    <!-- 서울시 지도 API -->
+    <link rel="stylesheet" type="text/css" href="https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/css/5.0">
+    <script type="text/javascript" src="https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/js/5.0"></script>
+    <script type="text/javascript" src="https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/base/js/5179/5.0"></script>
+    <style>
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        .search-section {
+            margin-bottom: 20px;
+        }
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        #searchInput {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #003876;
+            border-radius: 5px;
+        }
+        #mapContainer { 
+            width: 100%; 
+            height: 400px; 
+            margin: 20px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .facility-buttons, .building-buttons { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 15px;
+            background-color: #003876;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #002654;
+        }
+        #facilityList, #buildingList {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: none;
+        }
+        .notice-section {
+            margin: 20px 0;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 20px;
+        }
+        .notice-container {
+            background-color: white;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .notice-list {
+            padding: 10px;
+        }
+        .notice-item {
+            display: flex;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            align-items: center;
+        }
+        .notice-item:hover {
+            background-color: #f0f0f0;
+        }
+        .notice-image {
+            width: 200px;
+            height: 100px;
+            object-fit: cover;
+            margin-right: 15px;
+            border-radius: 5px;
+        }
+        .notice-content {
+            flex: 1;
+        }
+        .notice-title {
+            color: #003876;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .notice-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            gap: 10px;
+        }
+        .notice-control-btn {
+            padding: 5px 15px;
+            background-color: #003876;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .notice-control-btn:hover {
+            background-color: #002654;
+        }
+        .search-container button {
+            padding: 10px 20px;
+            background-color: #003876;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .search-container button:hover {
+            background-color: #002654;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 검색 섹션 -->
+        <div class="search-section">
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="주소 검색">
+                <button onclick="searchAddress()">검색</button>
+            </div>
+        </div>
+
+        <!-- 공지사항 섹션 -->
+        <div class="notice-section">
+            <h2>광운대학교 공지사항</h2>
+            <div class="notice-container">
+                <div class="notice-list" id="noticeList">
+                    <!-- 공지사항이 여기에 동적으로 로드됨 -->
+                </div>
+                <div class="notice-controls">
+                    <button id="noticePrev" class="notice-control-btn">이전</button>
+                    <span id="noticePageInfo"></span>
+                    <button id="noticeNext" class="notice-control-btn">다음</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 지도 섹션 -->
+        <div id="mapContainer"></div>
+
+        <!-- 시설 버튼 섹션 -->
+        <div class="facility-buttons">
+            <button onclick="searchFacility('convenience')">편의점</button>
+            <button onclick="searchFacility('cafe')">카페</button>
+            <button onclick="searchFacility('food')">식당</button>
+            <button onclick="searchFacility('facility')">편의시설</button>
+        </div>
+        <div id="facilityList"></div>
+
+        <!-- 건물 목록 섹션 -->
+        <div class="building-buttons" id="buildingButtons"></div>
+        <div id="buildingList"></div>
+    </div>
+
+    <script>
+        // 지도 초기화
+        var map = L.map("mapContainer", {
+            crs: getCrsEx(),
+            continuousWorld: true,
+            worldCopyJump: false,
+            zoomControl: false,
+            zoomAnimation: false,
+            fadeAnimation: true,
+            inertia: false,
+            closePopupOnClick: false,
+            attributionControl: false
+        });
+
+        var BASE_MAP = "https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/base/dawul_kor_normal/{z}/{j}/{k}/{x}/{y}/png";
+        var baseMap = new L.TileLayer.DAWULGIS_EX(BASE_MAP, {
+            minZoom: 1,
+            maxZoom: 15,
+            visible: false
+        });
+
+        map.setView([37.6193, 127.0595], 15);
+        map.addLayer(baseMap, true);
+
+        // 주소 검색 함수
+        async function searchAddress() {
+            const searchInput = document.getElementById('searchInput');
+            const query = searchInput.value.trim();
+            
+            if (!query) {
+                alert('검색할 주소를 입력해주세요.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/search/map-search?query=${query}`);
+                const data = await response.json();
+
+                if (data.success && data.coordinates) {
+                    // 지도 중심 이동
+                    map.setView([data.coordinates.lat, data.coordinates.lng], 17);
+                    
+                    // 검색된 위치에 마커 표시
+                    const marker = L.marker([data.coordinates.lat, data.coordinates.lng])
+                        .addTo(map)
+                        .bindPopup(data.address)
+                        .openPopup();
+                    
+                    // 5초 후 마커 제거
+                    setTimeout(() => {
+                        map.removeLayer(marker);
+                    }, 5000);
+                } else {
+                    alert(data.error || '주소를 찾을 수 없습니다.');
+                }
+            } catch (error) {
+                console.error('주소 검색 오류:', error);
+                alert('주소 검색에 실패했습니다.');
+            }
+        }
+
+        // Enter 키로 검색 실행
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchAddress();
+            }
+        });
+
+        // 시설 검색
+        async function searchFacility(type) {
+            try {
+                const response = await fetch(`/api/search/facilities/${type}`);
+                const data = await response.json();
+                showFacilityList(data.facilities, type);
+                updateMarkers(data.facilities);
+            } catch (error) {
+                console.error('시설 검색 오류:', error);
+            }
+        }
+
+        // 시설 목록 표시
+        function showFacilityList(facilities, type) {
+            const facilityList = document.getElementById('facilityList');
+            facilityList.style.display = 'block';
+            facilityList.innerHTML = `
+                <h3>${getTypeTitle(type)}</h3>
+                ${facilities.map(f => `
+                    <div onclick="showLocation(${f.location.lat}, ${f.location.lng})">
+                        ${f.name}
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        // 건물 정보 표시
+        async function showBuildingInfo(buildingId) {
+            try {
+                const response = await fetch(`/api/search/building/info?id=${buildingId}`);
+                const data = await response.json();
+                if (data.success) {
+                    const building = data.building;
+                    document.getElementById('buildingList').style.display = 'block';
+                    document.getElementById('buildingList').innerHTML = `
+                        <h3>${building.name}</h3>
+                        <p>위치: ${building.location.lat}, ${building.location.lng}</p>
+                    `;
+                    map.setView([building.location.lat, building.location.lng], 17);
+                }
+            } catch (error) {
+                console.error('건물 정보 조회 오류:', error);
+            }
+        }
+
+        // 시설 유형 제목 반환
+        function getTypeTitle(type) {
+            const titles = {
+                'convenience': '편의점',
+                'cafe': '카페',
+                'food': '식당',
+                'facility': '편의시설'
+            };
+            return titles[type] || type;
+        }
+
+        // 위치 표시
+        function showLocation(lat, lng) {
+            map.setView([lat, lng], 17);
+        }
+
+        // 페이지 로드 시 건물 목록 초기화
+        async function initializeBuildingButtons() {
+            try {
+                const response = await fetch('/api/search/buildings');
+                const data = await response.json();
+                if (data.buildings) {
+                    const buttonContainer = document.getElementById('buildingButtons');
+                    buttonContainer.innerHTML = data.buildings.map(building => `
+                        <button onclick="showBuildingInfo(${building.id})">
+                            ${building.name}
+                        </button>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('건물 목록 로드 오류:', error);
+            }
+        }
+
+        // 공지사항 로드
+        async function loadNotices() {
+            try {
+                const response = await fetch('/api/search/notices');
+                const data = await response.json();
+                
+                if (data.success && data.notices) {
+                    const noticeList = document.getElementById('noticeList');
+                    noticeList.innerHTML = data.notices.map(notice => `
+                        <div class="notice-item" onclick="window.open('${notice.link}', '_blank')">
+                            <img class="notice-image" src="${notice.imageUrl}" alt="${notice.title}">
+                            <div class="notice-content">
+                                <div class="notice-title">${notice.title}</div>
+                                <div class="notice-date">${notice.date}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('공지사항 로드 오류:', error);
+            }
+        }
+
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeBuildingButtons();
+            loadNotices();
+        });
+    </script>
+</body>
+</html>
