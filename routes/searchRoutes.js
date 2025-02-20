@@ -11,8 +11,7 @@ const buildings = [
   { id: 2, name: "80주년기념관", location: { lat: 37.6198, lng: 127.0597 } }
 ];
 
-// 서울시 지도 API 키
-const SEOUL_MAP_KEY = 'KEY158_972d5ece1363464bb55da94c73a9fbb7';
+
 
 // 공지사항을 크롤링할 공간
 const defaultNotices = [
@@ -126,7 +125,7 @@ router.get('/query', (req, res) => {
 // 검색 페이지 렌더링
 router.get('/', (req, res) => {
     res.render('search.ejs', {
-        SEOUL_MAP_KEY: 'KEY158_972d5ece1363464bb55da94c73a9fbb7'
+        SEOUL_MAP_KEY: 'fb59f7af2341658ab188e61060b2a1ac'
     });
 });
 

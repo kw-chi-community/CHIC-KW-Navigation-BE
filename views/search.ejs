@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>광운대학교 캠퍼스 안내</title>
     <!-- 서울시 지도 API -->
-    <link rel="stylesheet" type="text/css" href="https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/css/5.0">
-    <script type="text/javascript" src="https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/js/5.0"></script>
-    <script type="text/javascript" src="https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/base/js/5179/5.0"></script>
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=fb59f7af2341658ab188e61060b2a1ac"></script>
+
     <style>
         .container { 
             max-width: 1200px; 
@@ -157,7 +156,7 @@
         </div>
 
         <!-- 지도 섹션 -->
-        <div id="mapContainer"></div>
+        <div id="map" style="width:500px;height:400px;"></div>
 
         <!-- 시설 버튼 섹션 -->
         <div class="facility-buttons">
@@ -175,27 +174,13 @@
 
     <script>
         // 지도 초기화
-        var map = L.map("mapContainer", {
-            crs: getCrsEx(),
-            continuousWorld: true,
-            worldCopyJump: false,
-            zoomControl: false,
-            zoomAnimation: false,
-            fadeAnimation: true,
-            inertia: false,
-            closePopupOnClick: false,
-            attributionControl: false
-        });
+        var container = document.getElementById('map'); //지도를 담을 영역의 DOM 레퍼런스
+        var options = { //지도를 생성할 때 필요한 기본 옵션
+	    center: new kakao.maps.LatLng(33.450701, 126.570667), //지도의 중심좌표.
+	    level: 3 //지도의 레벨(확대, 축소 정도)
+};
 
-        var BASE_MAP = "https://map.seoul.go.kr/openapi/v5/<%= SEOUL_MAP_KEY %>/public/map/base/dawul_kor_normal/{z}/{j}/{k}/{x}/{y}/png";
-        var baseMap = new L.TileLayer.DAWULGIS_EX(BASE_MAP, {
-            minZoom: 1,
-            maxZoom: 15,
-            visible: false
-        });
-
-        map.setView([37.6193, 127.0595], 15);
-        map.addLayer(baseMap, true);
+var map = new kakao.maps.Map(container, options); //지도 생성 및 객체 리턴
 
         // 주소 검색 함수
         async function searchAddress() {
