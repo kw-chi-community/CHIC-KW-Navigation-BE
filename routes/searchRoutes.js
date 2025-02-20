@@ -125,7 +125,7 @@ router.get('/query', (req, res) => {
 // 검색 페이지 렌더링
 router.get('/', (req, res) => {
     res.render('search.ejs', {
-        SEOUL_MAP_KEY: 'fb59f7af2341658ab188e61060b2a1ac'
+       
     });
 });
 

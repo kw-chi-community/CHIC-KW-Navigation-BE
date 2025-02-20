@@ -39,7 +39,6 @@ app.use('/api', mapRoutes);
 // 메인 페이지 라우트를 /api/map으로 변경
 app.get('/api/map', (req, res) => {
     res.render('map.ejs', { 
-        SEOUL_MAP_KEY,
         mapWidth: 800,  // 지도 너비
         mapHeight: 600  // 지도 높이
     });
